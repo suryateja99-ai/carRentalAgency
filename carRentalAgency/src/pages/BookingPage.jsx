@@ -23,7 +23,7 @@ const initialForm = {
   paymentOption: 'full',
 }
 
-const DAILY_RATE = 2000
+const DAILY_RATE = 2500
 const FREE_KM_PER_DAY = 400
 const EXTRA_KM_RATE = 5
 const EXTRA_HOUR_RATE = 150
