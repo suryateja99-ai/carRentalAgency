@@ -23,9 +23,8 @@ const initialForm = {
   paymentOption: 'full',
 }
 
-const DRIVING_DAY_RATE = 2000
-const WAITING_DAY_RATE = 1500
-const FREE_KM_LIMIT = 400
+const DAILY_RATE = 2000
+const FREE_KM_PER_DAY = 400
 const EXTRA_KM_RATE = 5
 const SEVEN_SEATER_ADDON = 500
 
@@ -59,23 +58,19 @@ function calculateRentalPrice(totalHours, totalDistanceKm) {
     return null
   }
 
-  const extraHours = Math.max(0, hours - 24)
-  const hourlyWaitingRate = WAITING_DAY_RATE / 24
-  const waitingCharge = extraHours * hourlyWaitingRate
-  const baseFare = DRIVING_DAY_RATE + waitingCharge
-
-  const extraKm = Math.max(0, distanceKm - FREE_KM_LIMIT)
+  const rentalDays = Math.ceil(hours / 24)
+  const baseFare = rentalDays * DAILY_RATE
+  const freeKmLimit = rentalDays * FREE_KM_PER_DAY
+  const extraKm = Math.max(0, distanceKm - freeKmLimit)
   const extraCharge = extraKm * EXTRA_KM_RATE
-  const finalAmount = Math.round(baseFare + extraCharge)
+  const finalAmount = baseFare + extraCharge
 
   return {
-    extraHours,
-    hourlyWaitingRate,
-    waitingCharge: Math.round(waitingCharge),
-    baseFare: Math.round(baseFare),
-    freeKmLimit: FREE_KM_LIMIT,
+    rentalDays,
+    baseFare,
+    freeKmLimit,
     extraKm,
-    extraCharge: Math.round(extraCharge),
+    extraCharge,
     finalAmount,
   }
 }
@@ -239,9 +234,8 @@ function BookingPage() {
         amount: selfDrive.finalAmount + sevenSeaterCharge,
         kmUsed: enteredKm,
         breakdown: [
+          `Rental Days: ${selfDrive.rentalDays}`,
           `Base Fare: Rs ${selfDrive.baseFare}`,
-          `Waiting Hours: ${selfDrive.extraHours.toFixed(1)} hrs`,
-          `Waiting Charge: Rs ${selfDrive.waitingCharge}`,
           `Free KM Limit: ${selfDrive.freeKmLimit} KM`,
           `Extra KM: ${selfDrive.extraKm} KM`,
           `Extra KM Charge: Rs ${selfDrive.extraCharge}`,
