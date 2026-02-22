@@ -65,22 +65,23 @@ function calculateRentalPrice(totalHours, totalDistanceKm) {
   }
 
   const isShortTripBand = distanceKm <= SHORT_TRIP_FREE_KM
-  if (isShortTripBand) {
-    const extraKm = Math.max(0, distanceKm - SHORT_TRIP_FREE_KM)
-    const extraCharge = extraKm * EXTRA_KM_RATE
-    const finalAmount = Math.round(SHORT_TRIP_RATE + extraCharge)
 
-    return {
-      rentalDays: 1,
-      dailyRate: SHORT_TRIP_RATE,
-      extraHours: 0,
-      baseFare: SHORT_TRIP_RATE,
-      freeKmLimit: SHORT_TRIP_FREE_KM,
-      extraKm,
-      extraCharge: Math.round(extraCharge),
-      finalAmount,
-    }
+if (isShortTripBand) {
+  const extraKm = Math.max(0, distanceKm - SHORT_TRIP_FREE_KM)
+  const extraCharge = extraKm * EXTRA_KM_RATE
+  const finalAmount = Math.round(SHORT_TRIP_RATE + extraCharge)
+
+  return {
+    rentalDays: 1,
+    dailyRate: SHORT_TRIP_RATE,
+    extraHours: 0,
+    baseFare: SHORT_TRIP_RATE,
+    freeKmLimit: SHORT_TRIP_FREE_KM,
+    extraKm,
+    extraCharge: Math.round(extraCharge),
+    finalAmount,
   }
+}
 
   const fullDays = Math.floor(hours / 24)
   const remainingHours = hours % 24
