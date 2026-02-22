@@ -23,7 +23,9 @@ const initialForm = {
   paymentOption: 'full',
 }
 
-const DAILY_RATE = 2500
+const DAILY_RATE = 2000
+const HIGH_KM_DAILY_RATE = 2500
+const HIGH_KM_THRESHOLD = 400
 const FREE_KM_PER_DAY = 400
 const EXTRA_KM_RATE = 5
 const EXTRA_HOUR_RATE = 150
@@ -62,7 +64,9 @@ function calculateRentalPrice(totalHours, totalDistanceKm) {
   const fullDays = Math.floor(hours / 24)
   const remainingHours = hours % 24
   const billedFullDays = Math.max(1, fullDays)
-  const baseFare = billedFullDays * DAILY_RATE + remainingHours * EXTRA_HOUR_RATE
+  const kmPerDay = distanceKm / billedFullDays
+  const dailyRate = kmPerDay >= HIGH_KM_THRESHOLD ? HIGH_KM_DAILY_RATE : DAILY_RATE
+  const baseFare = billedFullDays * dailyRate + remainingHours * EXTRA_HOUR_RATE
   const freeKmLimit = billedFullDays * FREE_KM_PER_DAY
   const extraKm = Math.max(0, distanceKm - freeKmLimit)
   const extraCharge = extraKm * EXTRA_KM_RATE
@@ -70,6 +74,7 @@ function calculateRentalPrice(totalHours, totalDistanceKm) {
 
   return {
     rentalDays: billedFullDays,
+    dailyRate,
     extraHours: Number(remainingHours.toFixed(2)),
     baseFare: Math.round(baseFare),
     freeKmLimit,
@@ -239,6 +244,7 @@ function BookingPage() {
         kmUsed: enteredKm,
         breakdown: [
           `Rental Days (24h blocks): ${selfDrive.rentalDays}`,
+          `Applied Daily Rate: Rs ${selfDrive.dailyRate}`,
           `Extra Hours: ${selfDrive.extraHours}`,
           `Base Fare: Rs ${selfDrive.baseFare}`,
           `Free KM Limit: ${selfDrive.freeKmLimit} KM`,
