@@ -64,7 +64,7 @@ function calculateRentalPrice(totalHours, totalDistanceKm) {
     return null
   }
 
-  const isShortTripBand = (hours >= 12 && hours < 24) || distanceKm <= SHORT_TRIP_FREE_KM
+  const isShortTripBand = distanceKm <= SHORT_TRIP_FREE_KM
   if (isShortTripBand) {
     const extraKm = Math.max(0, distanceKm - SHORT_TRIP_FREE_KM)
     const extraCharge = extraKm * EXTRA_KM_RATE
