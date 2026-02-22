@@ -23,10 +23,9 @@ const initialForm = {
   paymentOption: 'full',
 }
 
-const DAILY_RATE = 2000
-const FREE_KM_PER_DAY = 350
 const EXTRA_KM_RATE = 5
 const SEVEN_SEATER_ADDON = 500
+const EXTRA_HOUR_RATE = 150
 
 const parseNumber = (value) => Number(String(value).replace(/[^0-9.]/g, '')) || 0
 const normalize = (value) => value.trim().toLowerCase().replace(/[^a-z0-9]/g, '')
@@ -50,7 +49,7 @@ function toMinutesFrom12Hour(hourValue, minuteValue, period) {
   return (normalizedHour + periodOffset) * 60 + minute
 }
 
-function calculateRentalPrice(totalHours, totalDistanceKm) {
+function calculateSelfDriveIndividualPrice(totalHours, totalDistanceKm) {
   const hours = Number(totalHours)
   const distanceKm = Number(totalDistanceKm)
 
@@ -58,28 +57,29 @@ function calculateRentalPrice(totalHours, totalDistanceKm) {
     return null
   }
 
-  const actualDays = Math.ceil(hours / 24)
-  const distanceDays = Math.ceil(distanceKm / FREE_KM_PER_DAY)
+  const hourCost =
+    hours <= 12
+      ? (hours / 12) * 1000
+      : hours <= 24
+        ? 1000 + ((hours - 12) / 12) * 1000
+        : 2000 + (hours - 24) * EXTRA_HOUR_RATE
 
-  let billingDays = Math.max(actualDays, distanceDays)
-  if (actualDays > distanceDays && actualDays > 1 && distanceKm <= (actualDays - 1) * FREE_KM_PER_DAY) {
-    billingDays = actualDays - 1
-  }
+  const kmCost =
+    distanceKm <= 100
+      ? (distanceKm / 100) * 1000
+      : distanceKm <= 300
+        ? 1000 + ((distanceKm - 100) / 200) * 1000
+        : distanceKm <= 400
+          ? 2000 + ((distanceKm - 300) / 100) * 500
+          : 2500 + (distanceKm - 400) * EXTRA_KM_RATE
 
-  const baseFare = billingDays * DAILY_RATE
-  const freeKmLimit = billingDays * FREE_KM_PER_DAY
-  const extraKm = Math.max(0, distanceKm - freeKmLimit)
-  const extraCharge = extraKm * EXTRA_KM_RATE
-  const finalAmount = baseFare + extraCharge
+  const baseAmount = Math.max(hourCost, kmCost)
+  const finalAmount = Math.round(baseAmount)
 
   return {
-    actualDays,
-    distanceDays,
-    billingDays,
-    baseFare,
-    freeKmLimit,
-    extraKm,
-    extraCharge,
+    hourCost: Math.round(hourCost),
+    kmCost: Math.round(kmCost),
+    appliedBase: finalAmount,
     finalAmount,
   }
 }
@@ -235,7 +235,7 @@ function BookingPage() {
         }
       }
 
-      const selfDrive = calculateRentalPrice(enteredHours, enteredKm)
+      const selfDrive = calculateSelfDriveIndividualPrice(enteredHours, enteredKm)
       if (!selfDrive) return null
 
       const sevenSeaterCharge = formData.carType === '7 Seater' ? SEVEN_SEATER_ADDON : 0
@@ -243,13 +243,9 @@ function BookingPage() {
         amount: selfDrive.finalAmount + sevenSeaterCharge,
         kmUsed: enteredKm,
         breakdown: [
-          `Rental Days (by time): ${selfDrive.actualDays}`,
-          `Distance Days (by KM): ${selfDrive.distanceDays}`,
-          `Billing Days: ${selfDrive.billingDays}`,
-          `Base Fare: Rs ${selfDrive.baseFare}`,
-          `Free KM Limit: ${selfDrive.freeKmLimit} KM`,
-          `Extra KM: ${selfDrive.extraKm} KM`,
-          `Extra KM Charge: Rs ${selfDrive.extraCharge}`,
+          `Hour-wise Price: Rs ${selfDrive.hourCost}`,
+          `KM-wise Price: Rs ${selfDrive.kmCost}`,
+          `Applied Base Fare: Rs ${selfDrive.appliedBase}`,
           ...(sevenSeaterCharge ? [`7 Seater Add-On: Rs ${sevenSeaterCharge}`] : []),
         ],
       }
