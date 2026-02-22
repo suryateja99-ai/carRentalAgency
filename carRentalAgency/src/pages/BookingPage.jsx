@@ -23,7 +23,8 @@ const initialForm = {
   paymentOption: 'full',
 }
 
-const EXTRA_HOUR_RATE = 150
+const DAILY_RATE = 2000
+const FREE_KM_PER_DAY = 350
 const EXTRA_KM_RATE = 5
 const SEVEN_SEATER_ADDON = 500
 
@@ -31,63 +32,58 @@ const parseNumber = (value) => Number(String(value).replace(/[^0-9.]/g, '')) || 
 const normalize = (value) => value.trim().toLowerCase().replace(/[^a-z0-9]/g, '')
 const outstationSevenSeaterAddOn = 500
 const pad = (value) => String(value).padStart(2, '0')
-const FIRST_DAY_RATE = 2000
-const WAITING_DAY_RATE = 1500
-const FREE_KM_LIMIT = 400
-const EXTRA_KM_RATE = 5
 
-function calculateSelfDrivePrice(totalHours, totalDistanceKm, carType) {
+function getLocalDateString() {
+  const now = new Date()
+  const offsetMs = now.getTimezoneOffset() * 60 * 1000
+  return new Date(now.getTime() - offsetMs).toISOString().slice(0, 10)
+}
+
+function toMinutesFrom12Hour(hourValue, minuteValue, period) {
+  const hour = Number(hourValue)
+  const minute = Number(minuteValue)
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null
+  if (hour < 1 || hour > 12 || minute < 0 || minute > 59) return null
+
+  const normalizedHour = hour % 12
+  const periodOffset = period === 'PM' ? 12 : 0
+  return (normalizedHour + periodOffset) * 60 + minute
+}
+
+function calculateRentalPrice(totalHours, totalDistanceKm) {
   const hours = Number(totalHours)
-  const distance = Number(totalDistanceKm)
+  const distanceKm = Number(totalDistanceKm)
 
-  if (!Number.isFinite(hours) || !Number.isFinite(distance) || hours <= 0 || distance < 0) {
+  if (!Number.isFinite(hours) || !Number.isFinite(distanceKm) || hours <= 0 || distanceKm < 0) {
     return null
   }
 
-  // Base plan selection
-  let baseHours = 0
-  let baseKm = 0
-  let basePrice = 0
+  const actualDays = Math.ceil(hours / 24)
+  const distanceDays = Math.ceil(distanceKm / FREE_KM_PER_DAY)
 
-  if (hours <= 12 && distance <=100) {
-    baseHours = 12
-    baseKm = 100
-    basePrice = 1000
-  } else if (hours <= 24 && distance <= 300) {
-    baseHours = 24
-    baseKm = 300
-    basePrice = 2000
-  } else {
-    baseHours = 24
-    baseKm = 400
-    basePrice = 2500
+  let billingDays = Math.max(actualDays, distanceDays)
+  if (actualDays > distanceDays && actualDays > 1 && distanceKm <= (actualDays - 1) * FREE_KM_PER_DAY) {
+    billingDays = actualDays - 1
   }
 
-  // Extra hour calculation (NO DAY ROUNDING)
-  const extraHours = Math.max(0, hours - baseHours)
-  const extraHourCharge = extraHours * EXTRA_HOUR_RATE
-
-  // Extra KM calculation
-  const extraKm = Math.max(0, distance - baseKm)
-  const extraKmCharge = extraKm * EXTRA_KM_RATE
-
-  const sevenSeaterCharge = carType === '7 Seater' ? SEVEN_SEATER_ADDON : 0
-
-  const finalAmount =
-    basePrice + extraHourCharge + extraKmCharge + sevenSeaterCharge
+  const baseFare = billingDays * DAILY_RATE
+  const freeKmLimit = billingDays * FREE_KM_PER_DAY
+  const extraKm = Math.max(0, distanceKm - freeKmLimit)
+  const extraCharge = extraKm * EXTRA_KM_RATE
+  const finalAmount = baseFare + extraCharge
 
   return {
-    basePrice,
-    baseHours,
-    baseKm,
-    extraHours,
-    extraHourCharge,
+    actualDays,
+    distanceDays,
+    billingDays,
+    baseFare,
+    freeKmLimit,
     extraKm,
-    extraKmCharge,
-    sevenSeaterCharge,
+    extraCharge,
     finalAmount,
   }
 }
+
 function BookingPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
@@ -211,46 +207,28 @@ function BookingPage() {
     if (formData.tripType === 'Self Drive') {
       const enteredHours = parseNumber(formData.selfDriveHours)
       const enteredKm = parseNumber(formData.selfDriveKm)
-      ifcalculateSelfDrivePrice(totalHours, totalDistanceKm) {
-  const hours = Number(totalHours)
-  const km = Number(totalDistanceKm)
+      if (!enteredHours || !enteredKm) return null
 
-  if (!Number.isFinite(hours) || !Number.isFinite(km) || hours <= 0 || km < 0) {
-    return {
-      baseFare: 0,
-      extraHours: 0,
-      extraHourCharge: 0,
-      extraKm: 0,
-      extraKmCharge: 0,
-      finalAmount: 0,
+      const selfDrive = calculateRentalPrice(enteredHours, enteredKm)
+      if (!selfDrive) return null
+
+      const sevenSeaterCharge = formData.carType === '7 Seater' ? SEVEN_SEATER_ADDON : 0
+      return {
+        amount: selfDrive.finalAmount + sevenSeaterCharge,
+        kmUsed: enteredKm,
+        breakdown: [
+          `Rental Days (by time): ${selfDrive.actualDays}`,
+          `Distance Days (by KM): ${selfDrive.distanceDays}`,
+          `Billing Days: ${selfDrive.billingDays}`,
+          `Base Fare: Rs ${selfDrive.baseFare}`,
+          `Free KM Limit: ${selfDrive.freeKmLimit} KM`,
+          `Extra KM: ${selfDrive.extraKm} KM`,
+          `Extra KM Charge: Rs ${selfDrive.extraCharge}`,
+          ...(sevenSeaterCharge ? [`7 Seater Add-On: Rs ${sevenSeaterCharge}`] : []),
+        ],
+      }
     }
-  }
 
-  // FIRST 24 HOURS BASE
-  const baseFare = FIRST_24H_RATE
-
-  // EXTRA HOURS AFTER 24
-  const extraHours = hours > 24 ? hours - 24 : 0
-  const extraHourCharge = extraHours * EXTRA_HOUR_RATE
-
-  // KM CALCULATION
-  const freeKmLimit = FIRST_24H_KM_LIMIT
-  const extraKm = km > freeKmLimit ? km - freeKmLimit : 0
-  const extraKmCharge = extraKm * EXTRA_KM_RATE
-
-  const finalAmount = baseFare + extraHourCharge + extraKmCharge
-
-  return {
-    baseFare,
-    extraHours,
-    extraHourCharge,
-    extraKm,
-    extraKmCharge,
-    finalAmount,
-  }
-      } (!enteredHours || !enteredKm) return null
-
-      const tripPrice = 
     const typedKm = parseNumber(formData.outstationKm)
     if (matchedLocation) {
       const locationRate = parseNumber(formData.acType === 'A/C' ? matchedLocation.ac : matchedLocation.nonAc)
@@ -345,11 +323,7 @@ function BookingPage() {
         description="Submit your booking details for self-drive or outstation rental."
       />
       <div className="mx-auto w-full max-w-4xl">
-        <SectionHeader
-          overline="Booking"
-          title="Reserve your ride in minutes."
-          description="Fill your details and continue to payment."
-        />
+        <SectionHeader overline="Booking" title="Reserve your ride in minutes." description="Fill your details and continue to payment." />
 
         <form className="rounded-2xl border border-slate-200 bg-white p-6 shadow-premium" onSubmit={onSubmit}>
           <h2 className="font-display text-3xl text-ink">Booking Form</h2>
@@ -507,7 +481,7 @@ function BookingPage() {
                     onChange={onChange}
                     className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-ink outline-none transition focus:border-accent"
                   />
-                    <datalist id="outstation-locations">
+                  <datalist id="outstation-locations">
                     {(pricing.outstation?.locations || []).map((location) => (
                       <option key={location.name} value={location.name} />
                     ))}
