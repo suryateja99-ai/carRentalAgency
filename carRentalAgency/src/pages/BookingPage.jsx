@@ -26,7 +26,7 @@ const initialForm = {
 const DAILY_RATE = 2000
 const FREE_KM_PER_DAY = 400
 const EXTRA_KM_RATE = 5
-const GRACE_HOURS = 2
+const EXTRA_HOUR_RATE = 150
 const SEVEN_SEATER_ADDON = 500
 
 const parseNumber = (value) => Number(String(value).replace(/[^0-9.]/g, '')) || 0
@@ -61,32 +61,20 @@ function calculateRentalPrice(totalHours, totalDistanceKm) {
 
   const fullDays = Math.floor(hours / 24)
   const remainingHours = hours % 24
-
-  let rentalDays = 0
-  if (remainingHours === 0) {
-    rentalDays = fullDays
-  } else if (remainingHours <= GRACE_HOURS) {
-    rentalDays = fullDays
-  } else {
-    rentalDays = fullDays + 1
-  }
-
-  if (rentalDays === 0) {
-    rentalDays = 1
-  }
-
-  const baseFare = rentalDays * DAILY_RATE
-  const freeKmLimit = rentalDays * FREE_KM_PER_DAY
+  const billedFullDays = Math.max(1, fullDays)
+  const baseFare = billedFullDays * DAILY_RATE + remainingHours * EXTRA_HOUR_RATE
+  const freeKmLimit = billedFullDays * FREE_KM_PER_DAY
   const extraKm = Math.max(0, distanceKm - freeKmLimit)
   const extraCharge = extraKm * EXTRA_KM_RATE
-  const finalAmount = baseFare + extraCharge
+  const finalAmount = Math.round(baseFare + extraCharge)
 
   return {
-    rentalDays,
-    baseFare,
+    rentalDays: billedFullDays,
+    extraHours: Number(remainingHours.toFixed(2)),
+    baseFare: Math.round(baseFare),
     freeKmLimit,
     extraKm,
-    extraCharge,
+    extraCharge: Math.round(extraCharge),
     finalAmount,
   }
 }
@@ -250,7 +238,8 @@ function BookingPage() {
         amount: selfDrive.finalAmount + sevenSeaterCharge,
         kmUsed: enteredKm,
         breakdown: [
-          `Rental Days: ${selfDrive.rentalDays}`,
+          `Rental Days (24h blocks): ${selfDrive.rentalDays}`,
+          `Extra Hours: ${selfDrive.extraHours}`,
           `Base Fare: Rs ${selfDrive.baseFare}`,
           `Free KM Limit: ${selfDrive.freeKmLimit} KM`,
           `Extra KM: ${selfDrive.extraKm} KM`,
@@ -573,7 +562,7 @@ function BookingPage() {
 
           {formData.tripType === 'Self Drive' ? (
             <p className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
-              Billing is Rs 2000 per 24 hours with 400 KM free, plus Rs 5 per extra KM. Up to 2 extra hours are treated as grace.
+              Billing is Rs 2000 per 24 hours with 400 KM free, Rs 150 per extra hour, and Rs 5 per extra KM.
             </p>
           ) : null}
 
