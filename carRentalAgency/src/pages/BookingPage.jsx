@@ -30,6 +30,9 @@ const FREE_KM_PER_DAY = 400
 const EXTRA_KM_RATE = 5
 const EXTRA_HOUR_RATE = 150
 const SEVEN_SEATER_ADDON = 500
+const MIN_SELF_DRIVE_HOURS = 12
+const SHORT_TRIP_RATE = 1000
+const SHORT_TRIP_FREE_KM = 100
 
 const parseNumber = (value) => Number(String(value).replace(/[^0-9.]/g, '')) || 0
 const normalize = (value) => value.trim().toLowerCase().replace(/[^a-z0-9]/g, '')
@@ -57,8 +60,26 @@ function calculateRentalPrice(totalHours, totalDistanceKm) {
   const hours = Number(totalHours)
   const distanceKm = Number(totalDistanceKm)
 
-  if (!Number.isFinite(hours) || !Number.isFinite(distanceKm) || hours <= 0 || distanceKm < 0) {
+  if (!Number.isFinite(hours) || !Number.isFinite(distanceKm) || hours < MIN_SELF_DRIVE_HOURS || distanceKm < 0) {
     return null
+  }
+
+  const isShortTripBand = (hours >= 12 && hours < 24) || distanceKm <= SHORT_TRIP_FREE_KM
+  if (isShortTripBand) {
+    const extraKm = Math.max(0, distanceKm - SHORT_TRIP_FREE_KM)
+    const extraCharge = extraKm * EXTRA_KM_RATE
+    const finalAmount = Math.round(SHORT_TRIP_RATE + extraCharge)
+
+    return {
+      rentalDays: 1,
+      dailyRate: SHORT_TRIP_RATE,
+      extraHours: 0,
+      baseFare: SHORT_TRIP_RATE,
+      freeKmLimit: SHORT_TRIP_FREE_KM,
+      extraKm,
+      extraCharge: Math.round(extraCharge),
+      finalAmount,
+    }
   }
 
   const fullDays = Math.floor(hours / 24)
@@ -219,6 +240,7 @@ function BookingPage() {
       const enteredHours = parseNumber(formData.selfDriveHours)
       const enteredKm = parseNumber(formData.selfDriveKm)
       if (!enteredHours || !enteredKm) return null
+      if (enteredHours < MIN_SELF_DRIVE_HOURS) return null
 
       const exactPlan = findExactSelfDrivePlan(pricing.selfDrive?.plans, enteredHours, enteredKm)
       if (exactPlan) {
@@ -281,6 +303,14 @@ function BookingPage() {
       ],
     }
   }, [formData, matchedLocation, pricing])
+
+  const selfDriveHoursError = useMemo(() => {
+    if (formData.tripType !== 'Self Drive') return ''
+    if (!formData.selfDriveHours) return ''
+    return parseNumber(formData.selfDriveHours) < MIN_SELF_DRIVE_HOURS
+      ? 'At least 12 hours need to be entered for self-drive booking.'
+      : ''
+  }, [formData.tripType, formData.selfDriveHours])
 
   const canSubmit = useMemo(() => {
     const baseValid = [
@@ -473,7 +503,7 @@ function BookingPage() {
                   Hours
                   <input
                     required
-                    min="1"
+                    min="12"
                     name="selfDriveHours"
                     type="number"
                     value={formData.selfDriveHours}
@@ -570,6 +600,9 @@ function BookingPage() {
             <p className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
               Billing is Rs 2000 per 24 hours with 400 KM free, Rs 150 per extra hour, and Rs 5 per extra KM.
             </p>
+          ) : null}
+          {selfDriveHoursError ? (
+            <p className="mt-3 text-sm font-semibold text-rose-700">{selfDriveHoursError}</p>
           ) : null}
 
           {estimatedBill ? (
