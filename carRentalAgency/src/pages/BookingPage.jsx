@@ -33,7 +33,7 @@ const EXTRA_HOUR_RATE = 150
 const SEVEN_SEATER_ADDON = 500
 const MIN_SELF_DRIVE_HOURS = 12
 const SHORT_TRIP_RATE = 1000
-const SHORT_TRIP_FREE_KM = 100
+const SHORT_TRIP_FREE_KM = 299
 
 const parseNumber = (value) => Number(String(value).replace(/[^0-9.]/g, '')) || 0
 const normalize = (value) => value.trim().toLowerCase().replace(/[^a-z0-9]/g, '')
@@ -65,7 +65,7 @@ if (!Number.isFinite(hours) || !Number.isFinite(distanceKm) || hours < MIN_SELF_
 return null
 }
 
-const isShortTripBand = (hours >= 12 && hours < 24) || distanceKm <= SHORT_TRIP_FREE_KM
+const isShortTripBand = distanceKm <= SHORT_TRIP_FREE_KM
 if (isShortTripBand) {
 const extraKm = Math.max(0, distanceKm - SHORT_TRIP_FREE_KM)
 const extraCharge = extraKm * EXTRA_KM_RATE
