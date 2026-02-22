@@ -506,18 +506,22 @@ description="Submit your booking details for self-drive or outstation rental."
                 <option>7 Seater</option>  
               </select>  
             </label>  
-            <label className="text-sm font-semibold text-slate-600">  
-              Hours  
-              <input  
-                required  
-                min="12"  
-                name="selfDriveHours"  
-                type="number"  
-                value={formData.selfDriveHours}  
-                onChange={onChange}  
-                className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-ink outline-none transition focus:border-accent"  
-              />  
-            </label>  
+            <label className="text-sm font-semibold text-slate-600">
+  Duration
+  <select
+    required
+    name="selfDriveHours"
+    value={formData.selfDriveHours}
+    onChange={onChange}
+    className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-ink outline-none transition focus:border-accent"
+  >
+    <option value="">Select Duration</option>
+    <option value="12">12 Hours</option>
+    <option value="24">24 Hours</option>
+    <option value="48">48 Hours</option>
+    <option value="72">72 Hours</option>
+  </select>
+</label>
             <label className="text-sm font-semibold text-slate-600">  
               KM  
               <input  
