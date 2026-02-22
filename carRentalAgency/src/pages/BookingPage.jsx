@@ -26,6 +26,7 @@ const initialForm = {
 const DAILY_RATE = 2000
 const FREE_KM_PER_DAY = 400
 const EXTRA_KM_RATE = 5
+const GRACE_HOURS = 2
 const SEVEN_SEATER_ADDON = 500
 
 const parseNumber = (value) => Number(String(value).replace(/[^0-9.]/g, '')) || 0
@@ -58,7 +59,22 @@ function calculateRentalPrice(totalHours, totalDistanceKm) {
     return null
   }
 
-  const rentalDays = Math.ceil(hours / 24)
+  const fullDays = Math.floor(hours / 24)
+  const remainingHours = hours % 24
+
+  let rentalDays = 0
+  if (remainingHours === 0) {
+    rentalDays = fullDays
+  } else if (remainingHours <= GRACE_HOURS) {
+    rentalDays = fullDays
+  } else {
+    rentalDays = fullDays + 1
+  }
+
+  if (rentalDays === 0) {
+    rentalDays = 1
+  }
+
   const baseFare = rentalDays * DAILY_RATE
   const freeKmLimit = rentalDays * FREE_KM_PER_DAY
   const extraKm = Math.max(0, distanceKm - freeKmLimit)
@@ -557,7 +573,7 @@ function BookingPage() {
 
           {formData.tripType === 'Self Drive' ? (
             <p className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
-              150rs per Hour and 5rs per KM will be billed if crossed Hours
+              Billing is Rs 2000 per 24 hours with 400 KM free, plus Rs 5 per extra KM. Up to 2 extra hours are treated as grace.
             </p>
           ) : null}
 
