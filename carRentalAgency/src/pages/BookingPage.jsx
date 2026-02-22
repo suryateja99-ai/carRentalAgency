@@ -84,6 +84,17 @@ function calculateRentalPrice(totalHours, totalDistanceKm) {
   }
 }
 
+function findExactSelfDrivePlan(plans, totalHours, totalDistanceKm) {
+  const list = Array.isArray(plans) ? plans : []
+  return (
+    list.find((plan) => {
+      const planHours = parseNumber(plan.duration)
+      const planKm = parseNumber(plan.km)
+      return planHours === totalHours && planKm === totalDistanceKm
+    }) || null
+  )
+}
+
 function BookingPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
@@ -208,6 +219,21 @@ function BookingPage() {
       const enteredHours = parseNumber(formData.selfDriveHours)
       const enteredKm = parseNumber(formData.selfDriveKm)
       if (!enteredHours || !enteredKm) return null
+
+      const exactPlan = findExactSelfDrivePlan(pricing.selfDrive?.plans, enteredHours, enteredKm)
+      if (exactPlan) {
+        const exactPrice = parseNumber(
+          formData.carType === '7 Seater' ? exactPlan.sevenSeaterPrice : exactPlan.fiveSeaterPrice,
+        )
+        return {
+          amount: exactPrice,
+          kmUsed: enteredKm,
+          breakdown: [
+            `Exact Plan Matched: ${exactPlan.title}`,
+            `Direct Plan Fare (${formData.carType}): Rs ${exactPrice}`,
+          ],
+        }
+      }
 
       const selfDrive = calculateRentalPrice(enteredHours, enteredKm)
       if (!selfDrive) return null
