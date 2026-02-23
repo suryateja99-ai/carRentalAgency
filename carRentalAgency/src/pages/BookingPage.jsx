@@ -62,8 +62,10 @@ function calculateRentalPrice(totalHours, totalDistanceKm) {
     return null
   }
 
-  // Slab 1: 12h up to 100km = 1000, then +150/hour and +5/km up to 23h/299km.
-  if (hours < 24) {
+  // Slab 1: 12h up to 100km = 1000.
+  // For 12-23h and up to 299km, add only actual extras:
+  // +150 per hour above 12, +5 per km above 100.
+  if (hours >= 12 && hours < 24 && distanceKm <= 299) {
     const extraHours = Math.max(0, hours - 12)
     const extraKm = Math.max(0, distanceKm - 100)
     const extraCharge = extraHours * EXTRA_HOUR_RATE + extraKm * EXTRA_KM_RATE
