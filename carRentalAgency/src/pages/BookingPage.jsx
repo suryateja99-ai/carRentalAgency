@@ -132,7 +132,7 @@ function calculateRentalPrice(totalHours, totalDistanceKm) {
     const finalAmount = Math.round(PLAN_72H_700KM_PRICE + extraCharge)
 
     return {
-      slab: '72h-700km',
+      slab: '72h-700km',//changes
       rentalDays: 3,
       extraHours: 0,
       baseFare: PLAN_72H_700KM_PRICE,
