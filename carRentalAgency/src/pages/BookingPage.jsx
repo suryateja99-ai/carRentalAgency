@@ -24,13 +24,12 @@ const initialForm = {
 }
 
 const EXTRA_KM_RATE = 5
-const EXTRA_HOUR_RATE = 150
 const SEVEN_SEATER_ADDON = 500
-const MIN_SELF_DRIVE_HOURS = 12
 const PLAN_12H_PRICE = 1000
 const PLAN_24H_300KM_PRICE = 2000
 const PLAN_24H_400KM_PRICE = 2500
 const PLAN_48H_700KM_PRICE = 4000
+const PLAN_72H_700KM_PRICE = 5000
 
 const parseNumber = (value) => Number(String(value).replace(/[^0-9.]/g, '')) || 0
 const normalize = (value) => value.trim().toLowerCase().replace(/[^a-z0-9]/g, '')
@@ -58,23 +57,19 @@ function calculateRentalPrice(totalHours, totalDistanceKm) {
   const hours = Number(totalHours)
   const distanceKm = Number(totalDistanceKm)
 
-  if (!Number.isFinite(hours) || !Number.isFinite(distanceKm) || hours < MIN_SELF_DRIVE_HOURS || distanceKm < 0) {
+  if (!Number.isFinite(hours) || !Number.isFinite(distanceKm) || distanceKm < 0) {
     return null
   }
 
-  // Slab 1: 12h up to 100km = 1000.
-  // For 12-23h and up to 299km, add only actual extras:
-  // +150 per hour above 12, +5 per km above 100.
-  if (hours >= 12 && hours < 24 && distanceKm <= 299) {
-    const extraHours = Math.max(0, hours - 12)
+  if (hours === 12) {
     const extraKm = Math.max(0, distanceKm - 100)
-    const extraCharge = extraHours * EXTRA_HOUR_RATE + extraKm * EXTRA_KM_RATE
+    const extraCharge = extraKm * EXTRA_KM_RATE
     const finalAmount = Math.round(PLAN_12H_PRICE + extraCharge)
 
     return {
       slab: '12h-100km',
       rentalDays: 1,
-      extraHours: Number(extraHours.toFixed(2)),
+      extraHours: 0,
       baseFare: PLAN_12H_PRICE,
       freeKmLimit: 100,
       extraKm,
@@ -83,96 +78,80 @@ function calculateRentalPrice(totalHours, totalDistanceKm) {
     }
   }
 
-  // Fixed point: 24h and up to 300km = 2000.
-  if (hours === 24 && distanceKm <= 300) {
-    return {
-      slab: '24h-300km',
-      rentalDays: 1,
-      extraHours: 0,
-      baseFare: PLAN_24H_300KM_PRICE,
-      freeKmLimit: 300,
-      extraKm: 0,
-      extraCharge: 0,
-      finalAmount: PLAN_24H_300KM_PRICE,
-    }
-  }
+  if (hours === 24 && distanceKm >= 400) {
+    const extraKm = Math.max(0, distanceKm - 400)
+    const extraCharge = extraKm * EXTRA_KM_RATE
+    const finalAmount = Math.round(PLAN_24H_400KM_PRICE + extraCharge)
 
-  // Fixed point: 24h and 301-400km = 2500.
-  if (hours === 24 && distanceKm <= 400) {
     return {
       slab: '24h-400km',
       rentalDays: 1,
       extraHours: 0,
       baseFare: PLAN_24H_400KM_PRICE,
       freeKmLimit: 400,
+      extraKm,
+      extraCharge: Math.round(extraCharge),
+      finalAmount,
+    }
+  }
+
+  if (hours === 24) {
+    const finalAmount = PLAN_24H_300KM_PRICE
+    return {
+      slab: '24h-300km',
+      rentalDays: 1,
+      extraHours: 0,
+      baseFare: PLAN_24H_300KM_PRICE,
+      freeKmLimit: 399,
       extraKm: 0,
       extraCharge: 0,
-      finalAmount: PLAN_24H_400KM_PRICE,
-    }
-  }
-
-  // Slab 2 continuation: >24h and/or >300km, valid till 47h and 399km.
-  if (hours < 48 && distanceKm <= 399) {
-    const extraHours = Math.max(0, hours - 24)
-    const extraKm = Math.max(0, distanceKm - 300)
-    const extraCharge = extraHours * EXTRA_HOUR_RATE + extraKm * EXTRA_KM_RATE
-    const finalAmount = Math.round(PLAN_24H_300KM_PRICE + extraCharge)
-
-    return {
-      slab: '24h-300km-iterative',
-      rentalDays: 1,
-      extraHours: Number(extraHours.toFixed(2)),
-      baseFare: PLAN_24H_300KM_PRICE,
-      freeKmLimit: 300,
-      extraKm,
-      extraCharge: Math.round(extraCharge),
       finalAmount,
     }
   }
 
-  // Slab 3 continuation: >24h and/or >400km, valid till 47h and 799km.
-  if (hours < 48 && distanceKm <= 799) {
-    const extraHours = Math.max(0, hours - 24)
-    const extraKm = Math.max(0, distanceKm - 400)
-    const extraCharge = extraHours * EXTRA_HOUR_RATE + extraKm * EXTRA_KM_RATE
-    const finalAmount = Math.round(PLAN_24H_400KM_PRICE + extraCharge)
+  if (hours === 48) {
+    const extraKm = Math.max(0, distanceKm - 700)
+    const extraCharge = extraKm * EXTRA_KM_RATE
+    const finalAmount = Math.round(PLAN_48H_700KM_PRICE + extraCharge)
 
-    return {
-      slab: '24h-400km-iterative',
-      rentalDays: 1,
-      extraHours: Number(extraHours.toFixed(2)),
-      baseFare: PLAN_24H_400KM_PRICE,
-      freeKmLimit: 400,
-      extraKm,
-      extraCharge: Math.round(extraCharge),
-      finalAmount,
-    }
-  }
-
-  // Fixed point: 48h with 401-700km = 4000.
-  if (hours === 48 && distanceKm <= 700) {
     return {
       slab: '48h-700km',
       rentalDays: 2,
       extraHours: 0,
       baseFare: PLAN_48H_700KM_PRICE,
       freeKmLimit: 700,
-      extraKm: 0,
-      extraCharge: 0,
-      finalAmount: PLAN_48H_700KM_PRICE,
+      extraKm,
+      extraCharge: Math.round(extraCharge),
+      finalAmount,
     }
   }
 
-  // After 48h/700km: +150 per extra hour and +5 per extra km.
-  const extraHours = Math.max(0, hours - 48)
+  if (hours === 72) {
+    const extraKm = Math.max(0, distanceKm - 700)
+    const extraCharge = extraKm * EXTRA_KM_RATE
+    const finalAmount = Math.round(PLAN_72H_700KM_PRICE + extraCharge)
+
+    return {
+      slab: '72h-700km',
+      rentalDays: 3,
+      extraHours: 0,
+      baseFare: PLAN_72H_700KM_PRICE,
+      freeKmLimit: 700,
+      extraKm,
+      extraCharge: Math.round(extraCharge),
+      finalAmount,
+    }
+  }
+
+  // Unsupported hour package.
   const extraKm = Math.max(0, distanceKm - 700)
-  const extraCharge = extraHours * EXTRA_HOUR_RATE + extraKm * EXTRA_KM_RATE
+  const extraCharge = extraKm * EXTRA_KM_RATE
   const finalAmount = Math.round(PLAN_48H_700KM_PRICE + extraCharge)
 
   return {
-    slab: '48h-700km-iterative',
+    slab: 'unsupported-hour-package',
     rentalDays: 2,
-    extraHours: Number(extraHours.toFixed(2)),
+    extraHours: 0,
     baseFare: PLAN_48H_700KM_PRICE,
     freeKmLimit: 700,
     extraKm,
@@ -316,7 +295,6 @@ function BookingPage() {
       const enteredHours = parseNumber(formData.selfDriveHours)
       const enteredKm = parseNumber(formData.selfDriveKm)
       if (!enteredHours || !enteredKm) return null
-      if (enteredHours < MIN_SELF_DRIVE_HOURS) return null
 
       const exactPlan = findExactSelfDrivePlan(pricing.selfDrive?.plans, enteredHours, enteredKm)
       if (exactPlan) {
@@ -379,14 +357,6 @@ function BookingPage() {
       ],
     }
   }, [formData, matchedLocation, pricing])
-
-  const selfDriveHoursError = useMemo(() => {
-    if (formData.tripType !== 'Self Drive') return ''
-    if (!formData.selfDriveHours) return ''
-    return parseNumber(formData.selfDriveHours) < MIN_SELF_DRIVE_HOURS
-      ? 'At least 12 hours need to be entered for self-drive booking.'
-      : ''
-  }, [formData.tripType, formData.selfDriveHours])
 
   const canSubmit = useMemo(() => {
     const baseValid = [
@@ -577,15 +547,19 @@ function BookingPage() {
                 </label>
                 <label className="text-sm font-semibold text-slate-600">
                   Hours
-                  <input
+                  <select
                     required
-                    min="12"
                     name="selfDriveHours"
-                    type="number"
                     value={formData.selfDriveHours}
                     onChange={onChange}
                     className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-ink outline-none transition focus:border-accent"
-                  />
+                  >
+                    <option value="">Select Hours</option>
+                    <option value="12">12 Hours</option>
+                    <option value="24">24 Hours</option>
+                    <option value="48">48 Hours</option>
+                    <option value="72">72 Hours</option>
+                  </select>
                 </label>
                 <label className="text-sm font-semibold text-slate-600">
                   KM
@@ -674,11 +648,8 @@ function BookingPage() {
 
           {formData.tripType === 'Self Drive' ? (
             <p className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
-              Billing is Rs 2000 per 24 hours with 400 KM free, Rs 150 per extra hour, and Rs 5 per extra KM.
+              Select 12/24/48/72 hour package. Price is slab-based and Rs 5 per extra KM applies above the slab limit.
             </p>
-          ) : null}
-          {selfDriveHoursError ? (
-            <p className="mt-3 text-sm font-semibold text-rose-700">{selfDriveHoursError}</p>
           ) : null}
 
           {estimatedBill ? (
